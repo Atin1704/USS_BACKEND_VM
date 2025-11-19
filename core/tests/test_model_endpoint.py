@@ -62,3 +62,33 @@ class ModelGetScoreViewTests(TestCase):
         response = self.client.get(endpoint)
         self.assertEqual(response.status_code, 200)
         mock_predict.assert_called_once_with(["www.example.com"])
+
+
+class SafeSearchScoreTests(TestCase):
+    def test_get_requires_url(self):
+        response = self.client.get(reverse("safe_search_score"))
+        self.assertEqual(response.status_code, 400)
+
+    @patch(
+        "core.views.score_url",
+        return_value={"url": "https://example.com", "label": 0, "probability_unsafe": 0.0, "risk_level": "very_safe"},
+    )
+    def test_post_invokes_service(self, mock_score):
+        payload = {"url": "https://example.com"}
+        response = self.client.post(
+            reverse("safe_search_score"),
+            data=payload,
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 200)
+        mock_score.assert_called_once_with("https://example.com")
+
+    @patch(
+        "core.views.score_url",
+        return_value={"url": "www.example.com", "label": 0, "probability_unsafe": 0.0, "risk_level": "very_safe"},
+    )
+    def test_get_with_path_segment(self, mock_score):
+        endpoint = reverse("safe_search_score_single", kwargs={"url_value": "www.example.com"})
+        response = self.client.get(endpoint)
+        self.assertEqual(response.status_code, 200)
+        mock_score.assert_called_once_with("www.example.com")

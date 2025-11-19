@@ -5,6 +5,7 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 
 from core.services.model_inference import predict_urls
+from core.services.safe_search_service import SafeSearchError, score_url
 
 
 def ping(request):
@@ -59,3 +60,32 @@ def model_get_score(request, url_value=None):
         return JsonResponse({'error': str(exc)}, status=500)
 
     return JsonResponse({'prediction': predictions})
+
+
+@csrf_exempt
+def safe_search_score(request, url_value=None):
+    if request.method == 'POST':
+        try:
+            payload = json.loads(request.body or '{}')
+        except json.JSONDecodeError:
+            return JsonResponse({'error': 'Invalid JSON payload.'}, status=400)
+
+        link = payload.get('url') or payload.get('link')
+    elif request.method == 'GET':
+        link = request.GET.get('url') or request.GET.get('link') or url_value
+    else:
+        return JsonResponse({'error': f'Method {request.method} not allowed.'}, status=405)
+
+    if link is None:
+        return JsonResponse({'error': 'A "url" parameter must be provided.'}, status=400)
+
+    try:
+        prediction = score_url(link)
+    except ValueError as exc:
+        return JsonResponse({'error': str(exc)}, status=400)
+    except SafeSearchError as exc:
+        return JsonResponse({'error': str(exc)}, status=500)
+    except Exception as exc:  # pragma: no cover - fail-safe for unexpected issues
+        return JsonResponse({'error': str(exc)}, status=500)
+
+    return JsonResponse({'prediction': [prediction]})
