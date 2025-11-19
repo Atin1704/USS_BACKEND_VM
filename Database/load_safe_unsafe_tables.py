@@ -127,7 +127,7 @@ def iter_urlhaus_urls(path: Path) -> Iterator[str]:
                 yield url
 
 
-def iter_top_domains(path: Path, limit: int = 150000) -> Iterator[str]:
+def iter_top_domains(path: Path, limit: int = 300000) -> Iterator[str]:
     with path.open(newline="", encoding="utf-8") as handle:
         reader = csv.reader(handle)
         for _, domain in islice(reader, limit):
